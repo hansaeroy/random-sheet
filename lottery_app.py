@@ -14,35 +14,54 @@ from openpyxl.utils.cell import range_boundaries
 from copy import copy
 from openpyxl.drawing.image import Image
 
-# 제비뽑기 함수 정의
 def create_random_seating_assignment(uploaded_file):
     try:
         # 엑셀 파일 읽기
         names_df = pd.read_excel(uploaded_file)
         
-        # 명단 시트에서 이름 목록 추출 (모든 열에서)
+        # 이름 목록 추출
         names = []
-        for column in names_df.columns:
-            names.extend(names_df[column].dropna().tolist())
         
-        names = [str(name) for name in names if isinstance(name, str) or isinstance(name, (int, float))]
+        # 모든 셀 순회하며 이름만 추출
+        for i in range(len(names_df)):
+            for j in range(1, len(names_df.columns) - 1):  # 첫번째 열(기관명)과 마지막 열(합계) 제외
+                value = names_df.iloc[i, j]
+                
+                # 값이 존재하고 문자열로 변환 가능한 경우
+                if pd.notna(value):
+                    value_str = str(value).strip()
+                    
+                    # 이름으로 간주할 조건:
+                    # - 길이가 2~8자 사이
+                    # - 숫자나 날짜가 아님
+                    # - 특정 키워드를 포함하지 않음
+                    exclude_words = ['기관', '합계', '명단', '무지개실', 'NaT', '청', '남', '여', '안나', '디모데', '사모회']
+                    
+                    if (2 <= len(value_str) <= 8 and 
+                        not value_str.replace('.', '', 1).isdigit() and
+                        not any(word in value_str for word in exclude_words) and
+                        not value_str.startswith('20')):
+                        names.append(value_str)
+        
+        # 중복 제거 (동명이인 처리를 위해 A, B 등의 접미사가 있는 경우 유지)
+        names = list(dict.fromkeys(names))
         
         if len(names) == 0:
             st.error("명단에서 이름을 찾을 수 없습니다.")
             return None
-        
+
         # 좌석 번호 생성
         regular_seats = list(range(1, 222))  # 일반 좌석 1-221
         chair_seats = [f"의자{i}" for i in range(1, 42)]  # 의자1-의자41
-        
+
         # 좌석 수와 명단 수 확인
         if len(names) > len(regular_seats) + len(chair_seats):
             st.error(f"명단({len(names)}명)이 좌석 수({len(regular_seats) + len(chair_seats)}개)보다 많습니다.")
             return None
-        
+
         # 데이터프레임 생성을 위한 데이터 준비
         result_data = []
-        
+
         # 암호학적으로 안전한 난수 생성기를 사용하여 각 이름에 랜덤 값 할당
         for name in names:
             random_value = secrets.randbelow(1000000) / 1000000
@@ -50,39 +69,40 @@ def create_random_seating_assignment(uploaded_file):
                 '이름': name,
                 '랜덤값': random_value
             })
-        
+
         # 결과 데이터프레임 생성 및 정렬
         result_df = pd.DataFrame(result_data)
         result_df = result_df.sort_values(by='랜덤값')
-        
+
         # 일반 좌석만 섞기
         random.shuffle(regular_seats)
-        
+
         # 좌석 번호 할당 (랜덤 순서대로, 일반 좌석 먼저 배정)
         needed_regular_seats = min(len(names), len(regular_seats))
         needed_chair_seats = max(0, len(names) - needed_regular_seats)
-        
+
         # 일반 좌석과 필요한 경우 의자 좌석 할당
         assigned_seats = regular_seats[:needed_regular_seats]
         if needed_chair_seats > 0:
             assigned_seats.extend(chair_seats[:needed_chair_seats])
-        
+
         # 결과 데이터프레임에 당첨번호 할당
         result_df['당첨번호'] = assigned_seats[:len(names)]
-        
+
         # 이름 기준으로 다시 정렬 (가나다순)
         result_df_sorted = result_df.sort_values(by='이름').reset_index(drop=True)
-        
+
         return {
             'result_df': result_df_sorted,
             'names': sorted(names),
             'needed_regular_seats': needed_regular_seats,
             'needed_chair_seats': needed_chair_seats
         }
-        
+
     except Exception as e:
         st.error(f"오류 발생: {e}")
         return None
+
 
 # 앱 디렉토리에 좌석 배치표 파일 저장
 SEATING_CHART_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seating_chart.xlsx")
@@ -452,7 +472,7 @@ def create_result_excel(results):
                     ws2.add_image(img_copy)
                 except Exception as img_error:
                     print(f"이미지 복사 중 오류: {img_error}")
-                    
+
     except Exception as e:
         print(f"좌석 배치표 추가 중 오류 발생: {e}")
    
