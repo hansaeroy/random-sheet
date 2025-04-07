@@ -487,10 +487,18 @@ st.set_page_config(page_title="제비뽑기 프로그램", page_icon="🎯", lay
 # 간결화된 CSS 스타일
 st.markdown("""
 <style>
-body { color: rgba(250, 250, 250, 0.9) !important; }
-p, ol, ul, label, div { color: rgba(250, 250, 250, 0.9) !important; }
-h1 { color: #ffffff !important; text-align: center; margin-bottom: 2rem; }
-h2, h3, h4 { color: #ffffff !important; }
+/* 기본 모드 스타일 */
+body { color: rgba(0, 0, 0, 0.9) !important; }
+p, ol, ul, label, div { color: rgba(0, 0, 0, 0.9) !important; }
+h1 { color: #000000 !important; text-align: center; margin-bottom: 2rem; }
+h2, h3, h4 { color: #000000 !important; }
+
+/* 다크 모드 스타일 */
+@media (prefers-color-scheme: dark) {
+    body { color: rgba(255, 255, 255, 0.9) !important; }
+    p, ol, ul, label, div { color: rgba(255, 255, 255, 0.9) !important; }
+    h1, h2, h3, h4 { color: #FFFFFF !important; }
+}
 
 .stButton > button {
     background-color: #4CAF50 !important;
@@ -581,7 +589,7 @@ h2, h3, h4 { color: #ffffff !important; }
     border-radius: 8px !important;
     margin: 20px 0 !important;
     border-left: 5px solid #4CAF50 !important;
-    color: rgba(250, 250, 250, 0.9) !important;
+    color: rgba(0, 0, 0, 0.9) !important;  /* 기본 모드에서 텍스트 색상 변경 */
 }
 .element-container.st-success {
     background-color: rgba(76, 175, 80, 0.1) !important;
