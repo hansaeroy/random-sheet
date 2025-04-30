@@ -27,8 +27,19 @@ def pixels_to_excel_width(pixels):
 
 def create_random_seating_assignment(uploaded_file):
     try:
-        # 엑셀 파일 읽기
-        names_df = pd.read_excel(uploaded_file)
+        # 엑셀 파일 읽기 (첫 시트: 명단, 두 번째 시트: 이전 결과)
+        xl = pd.ExcelFile(uploaded_file)
+        names_df = xl.parse(xl.sheet_names[0])
+        
+        # 지난번 앞쪽 배치자 추출
+        prev_front_names = set()
+        if len(xl.sheet_names) > 1:
+            prev_df = xl.parse(xl.sheet_names[1])
+            if "당첨번호" in prev_df.columns and "이름" in prev_df.columns:
+                prev_df["당첨번호"] = pd.to_numeric(prev_df["당첨번호"], errors="coerce")
+                prev_front_names = set(
+                    prev_df[prev_df["당첨번호"].between(1, 21, inclusive="both")]["이름"].astype(str).str.strip()
+                )
         
         # 이름과 그룹 정보를 추출
         persons = []
@@ -95,10 +106,34 @@ def create_random_seating_assignment(uploaded_file):
         st.write(f"명단에서 추출된 인원: {extracted_count}명")
         
         # 좌석 번호 생성
-        # 좌석을 20번 미만과 20번 이상으로 분리
         low_seats = list(range(1, 20))
         high_seats = list(range(20, 222))
         chair_seats = [f"의자{i}" for i in range(1, 50)]  # 의자1-의자49
+
+        # --- 특정 인원 좌석 범위 지정 ---
+        special_seat_ranges = {
+            "이인수": list(range(1, 71)),      # 1~70
+            "이재길": list(range(1, 51)),      # 1~50
+            "장한별": list(range(151, 222)),   # 150~221 (150번 이후)
+        }
+        special_seat_assignments = {}
+
+        # 각 인원별로 좌석 미리 배정
+        for name, seat_range in special_seat_ranges.items():
+            person = next((p for p in unique_persons if p['이름'] == name), None)
+            if person:
+                available = [s for s in seat_range if s in low_seats or s in high_seats]
+                if available:
+                    chosen = random.choice(available)
+                    special_seat_assignments[name] = chosen
+                    # 좌석 리스트에서 제거
+                    if chosen in low_seats:
+                        low_seats.remove(chosen)
+                    elif chosen in high_seats:
+                        high_seats.remove(chosen)
+                else:
+                    st.error(f"{name}에게 배정할 수 있는 좌석이 없습니다!")
+                    return None
 
         # 좌석 수와 명단 수 확인
         if len(unique_persons) > len(low_seats) + len(high_seats) + len(chair_seats):
@@ -122,6 +157,29 @@ def create_random_seating_assignment(uploaded_file):
         random.shuffle(low_seats)
         random.shuffle(high_seats)
         
+        # low_seats(1~19번)에 지난번 앞쪽 배치자 제외하고 배정
+        low_seat_candidates = [p for p in unique_persons if p['이름'] not in prev_front_names]
+        random.shuffle(low_seat_candidates)
+        assigned_low_seats = []
+        for i, seat in enumerate(low_seats):
+            if i < len(low_seat_candidates):
+                assigned_low_seats.append((low_seat_candidates[i]['이름'], seat))
+            else:
+                break
+
+        # 나머지 좌석 배정 시 assigned_low_seats에 이미 배정된 사람은 제외
+        assigned_names = set(name for name, seat in assigned_low_seats)
+
+        # 이후 results 생성 시 assigned_low_seats를 우선적으로 반영
+        results = []
+        for name, seat in assigned_low_seats:
+            results.append({
+                '이름': name,
+                '랜덤값': 0,  # 필요시 실제 랜덤값 할당
+                '당첨번호': seat
+            })
+        # 나머지 인원은 기존 방식대로 high_seats, chair_seats에서 배정
+
         # 특별 그룹에 높은 번호 좌석 배정, 일반 그룹에 나머지 좌석 배정
         needed_high_seats = min(len(special_persons), len(high_seats))
         
@@ -133,8 +191,16 @@ def create_random_seating_assignment(uploaded_file):
         
         # 특별 그룹에 높은 번호 좌석 배정
         for i in range(min(len(special_persons), needed_high_seats)):
+            name = special_persons[i]['이름']
+            if name in special_seat_assignments:
+                results.append({
+                    '이름': name,
+                    '랜덤값': special_persons[i]['랜덤값'],
+                    '당첨번호': special_seat_assignments[name]
+                })
+                continue
             results.append({
-                '이름': special_persons[i]['이름'],
+                '이름': name,
                 '랜덤값': special_persons[i]['랜덤값'],
                 '당첨번호': high_seats[i]
             })
@@ -146,17 +212,34 @@ def create_random_seating_assignment(uploaded_file):
         
         # 남은 특별 그룹 사람들
         for i in range(remaining_special):
+            idx = needed_high_seats + i
+            name = special_persons[idx]['이름']
+            if name in special_seat_assignments:
+                results.append({
+                    '이름': name,
+                    '랜덤값': special_persons[idx]['랜덤값'],
+                    '당첨번호': special_seat_assignments[name]
+                })
+                continue
             results.append({
-                '이름': special_persons[needed_high_seats + i]['이름'],
-                '랜덤값': special_persons[needed_high_seats + i]['랜덤값'],
+                '이름': name,
+                '랜덤값': special_persons[idx]['랜덤값'],
                 '당첨번호': all_remaining_seats[i]
             })
         
         # 일반 그룹 사람들
         for i in range(len(regular_persons)):
+            name = regular_persons[i]['이름']
+            if name in special_seat_assignments:
+                results.append({
+                    '이름': name,
+                    '랜덤값': regular_persons[i]['랜덤값'],
+                    '당첨번호': special_seat_assignments[name]
+                })
+                continue
             if i + remaining_special < len(all_remaining_seats):
                 results.append({
-                    '이름': regular_persons[i]['이름'],
+                    '이름': name,
                     '랜덤값': regular_persons[i]['랜덤값'],
                     '당첨번호': all_remaining_seats[i + remaining_special]
                 })
@@ -165,7 +248,7 @@ def create_random_seating_assignment(uploaded_file):
                 chair_idx = i + remaining_special - len(all_remaining_seats)
                 if chair_idx < len(chair_seats):
                     results.append({
-                        '이름': regular_persons[i]['이름'],
+                        '이름': name,
                         '랜덤값': regular_persons[i]['랜덤값'],
                         '당첨번호': chair_seats[chair_idx]
                     })
