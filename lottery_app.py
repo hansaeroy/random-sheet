@@ -158,98 +158,65 @@ def create_random_seating_assignment(uploaded_file):
         random.shuffle(high_seats)
         
         # low_seats(1~19번)에 지난번 앞쪽 배치자 제외하고 배정
-        low_seat_candidates = [p for p in unique_persons if p['이름'] not in prev_front_names]
+        low_seat_candidates = [p for p in unique_persons if p['이름'] not in prev_front_names and p['이름'] not in special_seat_assignments]
         random.shuffle(low_seat_candidates)
         assigned_low_seats = []
         for i, seat in enumerate(low_seats):
             if i < len(low_seat_candidates):
-                assigned_low_seats.append((low_seat_candidates[i]['이름'], seat))
+                assigned_low_seats.append({'이름': low_seat_candidates[i]['이름'], '당첨번호': seat})
             else:
                 break
 
-        # 나머지 좌석 배정 시 assigned_low_seats에 이미 배정된 사람은 제외
-        assigned_names = set(name for name, seat in assigned_low_seats)
+        # low_seats에 이미 배정된 사람 이름
+        assigned_low_names = set(x['이름'] for x in assigned_low_seats)
 
-        # 이후 results 생성 시 assigned_low_seats를 우선적으로 반영
+        # 나머지 인원(특정좌석 강제배정, low_seats 배정자 제외)
+        remaining_persons = [
+            p for p in unique_persons
+            if p['이름'] not in assigned_low_names and p['이름'] not in special_seat_assignments
+        ]
+
+        # 좌석 리스트에서 low_seats에서 이미 배정된 좌석 제거
+        remaining_low_seats = [s for s in low_seats if s not in [x['당첨번호'] for x in assigned_low_seats]]
+
+        # 전체 배정 좌석 pool
+        remaining_seats = high_seats + remaining_low_seats
+        random.shuffle(remaining_seats)
+
+        # 결과 리스트 생성
         results = []
-        for name, seat in assigned_low_seats:
+
+        # 1. 특정 인원 강제 좌석 배정
+        for name, seat in special_seat_assignments.items():
             results.append({
                 '이름': name,
-                '랜덤값': 0,  # 필요시 실제 랜덤값 할당
+                '랜덤값': 0,
                 '당첨번호': seat
             })
-        # 나머지 인원은 기존 방식대로 high_seats, chair_seats에서 배정
 
-        # 특별 그룹에 높은 번호 좌석 배정, 일반 그룹에 나머지 좌석 배정
-        needed_high_seats = min(len(special_persons), len(high_seats))
-        
-        # 높은 좌석이 부족한 경우, 일부 특별 그룹 사람은 일반 좌석 배정받음
-        remaining_special = max(0, len(special_persons) - needed_high_seats)
-        
-        # 좌석 배정
-        results = []
-        
-        # 특별 그룹에 높은 번호 좌석 배정
-        for i in range(min(len(special_persons), needed_high_seats)):
-            name = special_persons[i]['이름']
-            if name in special_seat_assignments:
-                results.append({
-                    '이름': name,
-                    '랜덤값': special_persons[i]['랜덤값'],
-                    '당첨번호': special_seat_assignments[name]
-                })
-                continue
+        # 2. low_seats에 배정된 사람
+        for x in assigned_low_seats:
             results.append({
-                '이름': name,
-                '랜덤값': special_persons[i]['랜덤값'],
-                '당첨번호': high_seats[i]
+                '이름': x['이름'],
+                '랜덤값': 0,
+                '당첨번호': x['당첨번호']
             })
-        
-        # 남은 높은 번호 좌석 + 낮은 번호 좌석을 일반 그룹 및 남은 특별 그룹에 배정
-        remaining_high_seats = high_seats[needed_high_seats:]
-        all_remaining_seats = remaining_high_seats + low_seats
-        random.shuffle(all_remaining_seats)  # 다시 섞기
-        
-        # 남은 특별 그룹 사람들
-        for i in range(remaining_special):
-            idx = needed_high_seats + i
-            name = special_persons[idx]['이름']
-            if name in special_seat_assignments:
+
+        # 3. 나머지 인원 랜덤 배정
+        for i, p in enumerate(remaining_persons):
+            if i < len(remaining_seats):
                 results.append({
-                    '이름': name,
-                    '랜덤값': special_persons[idx]['랜덤값'],
-                    '당첨번호': special_seat_assignments[name]
-                })
-                continue
-            results.append({
-                '이름': name,
-                '랜덤값': special_persons[idx]['랜덤값'],
-                '당첨번호': all_remaining_seats[i]
-            })
-        
-        # 일반 그룹 사람들
-        for i in range(len(regular_persons)):
-            name = regular_persons[i]['이름']
-            if name in special_seat_assignments:
-                results.append({
-                    '이름': name,
-                    '랜덤값': regular_persons[i]['랜덤값'],
-                    '당첨번호': special_seat_assignments[name]
-                })
-                continue
-            if i + remaining_special < len(all_remaining_seats):
-                results.append({
-                    '이름': name,
-                    '랜덤값': regular_persons[i]['랜덤값'],
-                    '당첨번호': all_remaining_seats[i + remaining_special]
+                    '이름': p['이름'],
+                    '랜덤값': p.get('랜덤값', 0),
+                    '당첨번호': remaining_seats[i]
                 })
             else:
                 # 좌석이 부족하면 의자 배정
-                chair_idx = i + remaining_special - len(all_remaining_seats)
+                chair_idx = i - len(remaining_seats)
                 if chair_idx < len(chair_seats):
                     results.append({
-                        '이름': name,
-                        '랜덤값': regular_persons[i]['랜덤값'],
+                        '이름': p['이름'],
+                        '랜덤값': p.get('랜덤값', 0),
                         '당첨번호': chair_seats[chair_idx]
                     })
                 else:
