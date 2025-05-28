@@ -172,9 +172,10 @@ def create_random_seating_assignment(uploaded_file):
 
         # 나머지 인원(특정좌석 강제배정, low_seats 배정자 제외)
         remaining_persons = [
-            p for p in unique_persons
+            p for p in unique_persons  # special_persons나 regular_persons 대신 unique_persons 사용
             if p['이름'] not in assigned_low_names and p['이름'] not in special_seat_assignments
         ]
+        random.shuffle(remaining_persons)  # 추가: 나머지 인원도 랜덤하게 섞기
 
         # 좌석 리스트에서 low_seats에서 이미 배정된 좌석 제거
         remaining_low_seats = [s for s in low_seats if s not in [x['당첨번호'] for x in assigned_low_seats]]
