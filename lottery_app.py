@@ -107,14 +107,14 @@ def create_random_seating_assignment(uploaded_file):
         
         # 좌석 번호 생성
         low_seats = list(range(1, 20))
-        high_seats = list(range(20, 222))
+        high_seats = list(range(20, 224))
         chair_seats = [f"의자{i}" for i in range(1, 50)]  # 의자1-의자49
 
         # --- 특정 인원 좌석 범위 지정 ---
         special_seat_ranges = {
             "이인수": list(range(1, 71)),      # 1~70
             "이재길": list(range(1, 51)),      # 1~50
-            "장한별": list(range(151, 222)),   # 150~221 (150번 이후)
+            "장한별": list(range(151, 224)),   # 150~221 (150번 이후)
         }
         special_seat_assignments = {}
 
@@ -974,8 +974,8 @@ with st.expander("제비뽑기 프로그램 상세 설명"):
     ### 제비뽑기 프로그램 특징
     
     **좌석 배정 방식:**
-    - 일반 좌석(1~221)이 랜덤하게 배정됩니다.
-    - 인원이 221명을 초과하는 경우에만 의자 좌석이 배정됩니다.
+    - 일반 좌석(1~224)이 랜덤하게 배정됩니다.
+    - 인원이 224명을 초과하는 경우에만 의자 좌석이 배정됩니다.
     - 의자 좌석은 의자1부터 순차적으로 필요한 만큼만 배정됩니다.
     
     **결과 파일 형식:**
