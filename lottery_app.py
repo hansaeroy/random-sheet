@@ -107,14 +107,14 @@ def create_random_seating_assignment(uploaded_file):
         
         # 좌석 번호 생성
         low_seats = list(range(1, 20))
-        high_seats = list(range(20, 224))
+        high_seats = list(range(20, 225))
         chair_seats = [f"의자{i}" for i in range(1, 50)]  # 의자1-의자49
 
         # --- 특정 인원 좌석 범위 지정 ---
         special_seat_ranges = {
             "이인수": list(range(1, 71)),      # 1~70
             "이재길": list(range(1, 51)),      # 1~50
-            "장한별": list(range(151, 224)),   # 150~221 (150번 이후)
+            "장한별": list(range(151, 225)),   # 150~224 (150번 이후)
         }
         special_seat_assignments = {}
 
@@ -135,9 +135,11 @@ def create_random_seating_assignment(uploaded_file):
                     st.error(f"{name}에게 배정할 수 있는 좌석이 없습니다!")
                     return None
 
-        # 좌석 수와 명단 수 확인
-        if len(unique_persons) > len(low_seats) + len(high_seats) + len(chair_seats):
-            st.error(f"명단({len(unique_persons)}명)이 좌석 수({len(low_seats) + len(high_seats) + len(chair_seats)}개)보다 많습니다.")
+        # 좌석 수와 명단 수 확인 (특정 인원에게 미리 배정된 좌석도 포함하여 계산)
+        reserved_seat_count = len(special_seat_assignments)
+        total_seat_capacity = len(low_seats) + len(high_seats) + len(chair_seats) + reserved_seat_count
+        if len(unique_persons) > total_seat_capacity:
+            st.error(f"명단({len(unique_persons)}명)이 좌석 수({total_seat_capacity}개)보다 많습니다.")
             return None
             
         # 특정 그룹 분리 (7남, 8남, 15여, 16여)
