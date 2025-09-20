@@ -159,7 +159,33 @@ def create_random_seating_assignment(uploaded_file):
         random.shuffle(low_seats)
         random.shuffle(high_seats)
         
-        # low_seats(1~19번)에 지난번 앞쪽 배치자 제외하고 배정
+        # 지난번 앞쪽 배치자들을 50번 이상 좌석에 강제 배정 (특정 인원 제외)
+        # 특정 인원은 50번 이상 배정에서 제외
+        special_names = set(special_seat_ranges.keys())
+        prev_front_persons = [p for p in unique_persons if p['이름'] in prev_front_names and p['이름'] not in special_seat_assignments and p['이름'] not in special_names]
+        random.shuffle(prev_front_persons)
+        
+        # 50번 이상 좌석 범위 (50~225) - 특정 인원이 이미 배정된 좌석은 제외
+        high_number_seats = list(range(50, 226))
+        # 특정 인원이 이미 배정한 50번 이상 좌석들을 제외
+        for name, seat in special_seat_assignments.items():
+            if seat >= 50 and seat in high_number_seats:
+                high_number_seats.remove(seat)
+        random.shuffle(high_number_seats)
+        
+        # 지난번 앞쪽 배치자들에게 50번 이상 좌석 배정
+        assigned_prev_front = []
+        for i, person in enumerate(prev_front_persons):
+            if i < len(high_number_seats):
+                assigned_prev_front.append({'이름': person['이름'], '당첨번호': high_number_seats[i]})
+            else:
+                break
+        
+        # 배정된 50번 이상 좌석들을 high_seats에서 제거
+        assigned_high_numbers = [x['당첨번호'] for x in assigned_prev_front]
+        high_seats = [s for s in high_seats if s not in assigned_high_numbers]
+        
+        # low_seats(1~19번)에 나머지 인원 배정 (지난번 앞쪽 배치자 제외)
         low_seat_candidates = [p for p in unique_persons if p['이름'] not in prev_front_names and p['이름'] not in special_seat_assignments]
         random.shuffle(low_seat_candidates)
         assigned_low_seats = []
@@ -171,13 +197,14 @@ def create_random_seating_assignment(uploaded_file):
 
         # low_seats에 이미 배정된 사람 이름
         assigned_low_names = set(x['이름'] for x in assigned_low_seats)
+        assigned_prev_front_names = set(x['이름'] for x in assigned_prev_front)
 
-        # 나머지 인원(특정좌석 강제배정, low_seats 배정자 제외)
+        # 나머지 인원(특정좌석 강제배정, low_seats 배정자, 지난번 앞쪽 배치자 제외)
         remaining_persons = [
-            p for p in unique_persons  # special_persons나 regular_persons 대신 unique_persons 사용
-            if p['이름'] not in assigned_low_names and p['이름'] not in special_seat_assignments
+            p for p in unique_persons
+            if p['이름'] not in assigned_low_names and p['이름'] not in special_seat_assignments and p['이름'] not in assigned_prev_front_names
         ]
-        random.shuffle(remaining_persons)  # 추가: 나머지 인원도 랜덤하게 섞기
+        random.shuffle(remaining_persons)
 
         # 좌석 리스트에서 low_seats에서 이미 배정된 좌석 제거
         remaining_low_seats = [s for s in low_seats if s not in [x['당첨번호'] for x in assigned_low_seats]]
@@ -197,7 +224,15 @@ def create_random_seating_assignment(uploaded_file):
                 '당첨번호': seat
             })
 
-        # 2. low_seats에 배정된 사람
+        # 2. 지난번 앞쪽 배치자들 (50번 이상 좌석 배정)
+        for x in assigned_prev_front:
+            results.append({
+                '이름': x['이름'],
+                '랜덤값': 0,
+                '당첨번호': x['당첨번호']
+            })
+
+        # 3. low_seats에 배정된 사람
         for x in assigned_low_seats:
             results.append({
                 '이름': x['이름'],
@@ -205,7 +240,7 @@ def create_random_seating_assignment(uploaded_file):
                 '당첨번호': x['당첨번호']
             })
 
-        # 3. 나머지 인원 랜덤 배정
+        # 4. 나머지 인원 랜덤 배정
         for i, p in enumerate(remaining_persons):
             if i < len(remaining_seats):
                 results.append({
