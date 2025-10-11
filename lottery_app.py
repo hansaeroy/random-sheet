@@ -143,7 +143,7 @@ def create_random_seating_assignment(uploaded_file):
             return None
             
         # 특정 그룹 분리 (7남, 8남, 15여, 16여)
-        special_groups = ['7남', '8남', '15여', '16여','17여']
+        special_groups = ['7남', '8남', '15여', '16여','17여','2안나']
         special_persons = [p for p in unique_persons if p['그룹'] in special_groups]
         regular_persons = [p for p in unique_persons if p['그룹'] not in special_groups]
         
